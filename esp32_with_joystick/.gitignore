@@ -1,0 +1,40 @@
+# Ignorar pastas de build
+/build/
+/CMakeFiles/
+/cmake-build-*/
+
+# Arquivos gerados pelo CMake
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+
+# Arquivos de configuração locais
+sdkconfig
+sdkconfig.old
+sdkconfig.defaults
+sdkconfig.ci
+
+# Arquivos de lock e dependências
+dependencies.lock
+
+# Ignorar arquivos do VS Code
+.vscode/
+
+# Devcontainer (ambiente de contêiner local)
+.devcontainer/
+
+# Arquivos temporários e de backup
+*.log
+*.tmp
+*.bak
+*.swp
+
+# Arquivos do sistema operacional
+.DS_Store
+Thumbs.db
+
+# Arquivos do ambiente Python
+__pycache__/
+*.pyc
+.venv/
+.env/

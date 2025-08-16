@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>Labirinto</title>
+<style>
+  body {
+    text-align: center;
+    background: #eee;
+    font-family: sans-serif;
+  }
+  canvas {
+    background: white;
+    display: block;
+    margin: 10px auto;
+    border: 2px solid #000;
+  }
+  .controls {
+    display: grid;
+    grid-template-columns: 50px 50px 50px;
+    justify-content: center;
+    gap: 5px;
+    margin-top: 10px;
+  }
+  .controls button {
+    font-size: 20px;
+    padding: 10px;
+    cursor: pointer;
+  }
+</style>
+<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+</head>
+<body>
+
+<h2>Jogo de Labirinto</h2>
+<p id="levelInfo"></p>
+<canvas id="gameCanvas" width="480" height="480"></canvas>
+
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+const tileSize = 40;
+const rows = 12;
+const cols = 12;
+const levelInfo = document.getElementById("levelInfo");
+
+const levels = [
+  [
+    [0,0,0,0,1,0,0,0,1,0,0,0],
+    [1,1,1,0,1,0,1,0,1,0,1,0],
+    [0,0,0,0,0,0,1,0,0,0,1,0],
+    [0,1,1,1,1,0,1,1,1,0,0,0],
+    [0,0,0,0,1,0,0,0,1,1,1,0],
+    [0,1,1,0,1,1,1,0,0,0,0,0],
+    [0,1,0,0,0,0,1,1,1,1,0,1],
+    [0,1,0,1,1,0,0,0,0,1,0,0],
+    [0,0,0,1,0,0,1,1,0,1,1,0],
+    [1,1,0,1,0,1,1,0,0,0,0,0],
+    [0,0,0,0,0,0,0,0,1,1,1,0],
+    [0,1,1,1,1,1,1,0,0,0,0,0]
+  ],
+  [
+    [0,1,1,0,1,0,0,0,1,1,1,0],
+    [0,0,1,0,1,0,1,0,0,0,1,0],
+    [1,0,1,0,1,0,1,1,1,0,1,0],
+    [1,0,0,0,0,0,0,0,1,0,1,0],
+    [1,1,1,1,1,1,1,0,1,0,1,0],
+    [0,0,0,0,0,0,1,0,0,0,0,0],
+    [0,1,1,1,1,0,1,1,1,1,1,0],
+    [0,1,0,0,0,0,0,0,0,0,1,0],
+    [0,1,0,1,1,1,1,1,1,0,1,0],
+    [0,0,0,1,0,0,0,0,1,0,0,0],
+    [1,1,0,1,0,1,1,0,1,1,1,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0]
+  ],
+  [
+    [0,1,1,1,1,1,1,1,1,1,1,0],
+    [0,0,0,0,0,0,0,0,0,0,1,0],
+    [1,1,1,1,1,1,1,1,1,0,1,0],
+    [0,0,0,0,0,0,0,0,1,0,1,0],
+    [0,1,1,1,1,1,1,0,1,0,1,0],
+    [0,1,0,0,0,0,0,0,1,0,1,0],
+    [0,1,0,1,1,1,1,1,1,0,1,0],
+    [0,1,0,1,0,0,0,0,0,0,1,0],
+    [0,1,0,1,0,1,1,1,1,1,1,0],
+    [0,0,0,1,0,1,0,0,0,0,0,0],
+    [1,1,1,1,0,1,0,1,1,1,1,1],
+    [0,0,0,0,0,0,0,0,0,0,0,0]
+  ]
+];
+
+let currentLevel = 0;
+let maze = levels[currentLevel];
+let start = { x: 0, y: 0 };
+let end = { x: cols - 1, y: rows - 1 };
+let player = { x: start.x, y: start.y };
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
+      ctx.fillStyle = maze[y][x] === 1 ? "black" : "white";
+      ctx.fillRect(x * tileSize, y * tileSize, tileSize, tileSize);
+      ctx.strokeRect(x * tileSize, y * tileSize, tileSize, tileSize);
+    }
+  }
+
+  ctx.fillStyle = "green";
+  ctx.fillRect(end.x * tileSize, end.y * tileSize, tileSize, tileSize);
+
+  ctx.fillStyle = "red";
+  ctx.beginPath();
+  ctx.arc(
+    player.x * tileSize + tileSize / 2,
+    player.y * tileSize + tileSize / 2,
+    tileSize / 3,
+    0,
+    Math.PI * 2
+  );
+  ctx.fill();
+
+  levelInfo.textContent = `Nível: ${currentLevel + 1} / ${levels.length}`;
+}
+
+function move(dx, dy) {
+  const newX = player.x + dx;
+  const newY = player.y + dy;
+
+  if (
+    newX >= 0 && newX < cols &&
+    newY >= 0 && newY < rows &&
+    maze[newY][newX] === 0
+  ) {
+    player.x = newX;
+    player.y = newY;
+    draw();
+    checkWin();
+  }
+}
+
+function moveByDirection(direction) {
+  switch(direction) {
+    case 'up': move(0, -1); break;
+    case 'down': move(0, 1); break;
+    case 'left': move(-1, 0); break;
+    case 'right': move(1, 0); break;
+  }
+}
+
+function checkWin() {
+  if (player.x === end.x && player.y === end.y) {
+    setTimeout(() => {
+      if (currentLevel < levels.length - 1) {
+        alert("Parabéns! Próximo nível!");
+        currentLevel++;
+        loadLevel();
+      } else {
+        alert("Você venceu todos os níveis! Reiniciando...");
+        currentLevel = 0;
+        loadLevel();
+      }
+    }, 100);
+  }
+}
+
+function loadLevel() {
+  maze = levels[currentLevel];
+  player.x = start.x;
+  player.y = start.y;
+  draw();
+}
+
+loadLevel();
+
+
+const brokerUrl = ''; 
+const client = mqtt.connect(brokerUrl);
+
+client.on('connect', () => {
+    console.log('Conectado ao broker MQTT');
+    client.subscribe('/ifpe/ads/joystick', (err) => {
+        if (!err) console.log('Inscrito no tópico /ifpe/ads/joystick');
+    });
+});
+
+client.on('message', (topic, message) => {
+    const comando = message.toString();
+    console.log('Mensagem recebida:', comando);
+    moveByDirection(comando);
+});
+</script>
+
+</body>
+</html>
